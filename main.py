@@ -73,6 +73,7 @@ async def start_command(message: types.Message):
 
 @dp.message(F.text == "✅ Готовий(-а)")
 async def ready_pressed(message: types.Message, state: FSMContext):
+  #Початок реєстрації
     await state.set_state(Reg.name)
     await message.answer("Як Тебе звати?")
 

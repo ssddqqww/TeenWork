@@ -4,7 +4,7 @@ from config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB
 
 pool: Optional[aiomysql.Pool] = None
 
-
+# Підключення до бази даних
 async def init_pool() -> None:
 
     global pool
@@ -30,7 +30,7 @@ async def close_pool() -> None:
         await pool.wait_closed()
         pool = None
 
-
+# Збереження користувача
 async def save_user(telegram_id: int, name: str, age: int, skills: List[str]) -> None:
     assert pool is not None
     skills_csv = ",".join(skills)
@@ -45,7 +45,7 @@ async def save_user(telegram_id: int, name: str, age: int, skills: List[str]) ->
                 (telegram_id, name, age, skills_csv)
             )
 
-
+# Отримання користувача за telegram_id
 async def get_user_by_telegram(telegram_id: int) -> Optional[Dict[str, Any]]:
     assert pool is not None
     async with pool.acquire() as conn:
