@@ -18,4 +18,4 @@ The bot helps to complete tasks and automates interaction with users.
 ## How to Work
 - To edit text (analytics), use analytics.md directly on GitHub
 - For code, commit changes to the appropriate files (main.py and others) locally or via pull request
-# TeenWorkCop
+# TeenWork
