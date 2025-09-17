@@ -19,6 +19,6 @@
 ## 12.09.2025 (Friday)
 - Kseniia (Creator)(Python Developer): Tested several hosting platforms for bot deployment (Railway, Render, PythonAnywhere) to evaluate the most suitable environment.
 - Andrii (Python Developer): Implemented and shared his latest task in the team chat yesterday.
-- Varvara (UI/UX Designer) and Katherine (UI/Ux Designer): Created 18 logo concepts; after a joint decision, the team finalized one logo.
-- Varvara (UI/UX Designer) and Katherine (UI/Ux Designer): Selected more than 10 fonts to be used for texts and phrases in the bot.
-- Varvara (UI/UX Designer) and Katherine (UI/Ux Designer): Designed 5 color palettes for the project’s visual identity.
+- Varvara (UI/UX Designer) and Katherine (UI/UX Designer): Created 18 logo concepts; after a joint decision, the team finalized one logo.
+- Varvara (UI/UX Designer) and Katherine (UI/UX Designer): Selected more than 10 fonts to be used for texts and phrases in the bot.
+- Varvara (UI/UX Designer) and Katherine (UI/UX Designer): Designed 5 color palettes for the project’s visual identity.
