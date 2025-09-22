@@ -22,3 +22,9 @@
 - Varvara (UI/UX Designer) and Katherine (UI/UX Designer): Created 18 logo concepts; after a joint decision, the team finalized one logo.
 - Varvara (UI/UX Designer) and Katherine (UI/UX Designer): Selected more than 10 fonts to be used for texts and phrases in the bot.
 - Varvara (UI/UX Designer) and Katherine (UI/UX Designer): Designed 5 color palettes for the project’s visual identity.
+
+## 19.09.2025 (Friday)
+- Andrii (Python Developer): Made a menu in the bot.
+- Andrii (Python Developer): Made an admin panel.
+- Andrii (Python Developer): Made a profile.
+- Andrii (Python Developer): Made a system for sending tasks and receiving points for them. Bot is ready.
