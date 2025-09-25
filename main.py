@@ -6,6 +6,8 @@ from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 from config import BOT_TOKEN, ADMIN_IDS
 from db import init_pool, close_pool, save_user, get_user_by_telegram, get_tasks_by_skills, get_task_by_id, list_all_users, create_user_task, get_user_task_by_id, update_user_task_status, save_user_task_file, list_user_task_files, increment_user_points
 from db import list_submitted_user_tasks, get_user_by_id, has_in_progress_task_for_telegram
@@ -93,7 +95,7 @@ class TaskLockMiddleware:
                     allowed = True
                 if event.content_type in {"photo", "document", "video", "audio", "voice"}:
                     allowed = True
-                if not allowed:
+                if not allowed or delete_messages:
                     try:
                         await event.delete()
                     except Exception:
@@ -116,10 +118,11 @@ class CleanupMiddleware:
         try:
             state: FSMContext | None = data.get("state")
             if isinstance(event, types.Message):
-                try:
-                    await event.delete()
-                except Exception:
-                    pass
+                if delete_messages:
+                    try:
+                        await event.delete()
+                    except Exception:
+                        pass
                 to_delete: list[int] = []
                 if state is not None:
                     try:
@@ -130,16 +133,17 @@ class CleanupMiddleware:
                 if to_delete:
                     chat_id = event.chat.id
                     bot = event.bot
-                    for mid in set(to_delete):
-                        try:
-                            await bot.delete_message(chat_id, mid)
-                        except Exception:
-                            pass
-                    if state is not None:
-                        try:
-                            await state.update_data(to_delete=[])
-                        except Exception:
-                            pass
+                    if delete_messages:
+                        for mid in set(to_delete):
+                            try:
+                                await bot.delete_message(chat_id, mid)
+                            except Exception:
+                                pass
+                        if state is not None:
+                            try:
+                                await state.update_data(to_delete=[])
+                            except Exception:
+                                pass
             return await handler(event, data)
         except Exception:
             return await handler(event, data)
@@ -166,11 +170,13 @@ def ready_keyboard():
     return keyboard
 
 
+delete_messages = True
 async def cleanup_user_messages(message: types.Message, state: FSMContext):
-    try:
-        await message.delete()
-    except Exception:
-        pass
+    if delete_messages:
+        try:
+            await message.delete()
+        except Exception:
+            pass
 
 
 async def track_message(state: FSMContext, message_id: int):
@@ -185,21 +191,21 @@ async def track_message(state: FSMContext, message_id: int):
 @dp.message(Command("start"))
 async def start_command(message: types.Message, state: FSMContext):
     start_text = (
-        "Привіт, дорогий(-а) учаснику(-це). 👋\n\n"
-        "Я - бот молодіжної організації, який\n"
-        "📎допоможе Тобі покращити будь-які Твої навички;\n"
-        "📎знайде завдання відповідно до Твого досвіду, за виконання яких Ти отримуватимеш "
-        "бонусні бали.\n\n"
-        "⏰Після отримання завдання починається відлік часу, за який Тобі потрібно виконати "
-        "завдання та здати роботу. Після цього адміністратор перевірить Твою роботу і або "
-        "дасть Тобі бонусні бали, або надішле на доопрацювання. *Якщо Ти не встигнеш "
-        "виконати завдання до дедлайну, завдання анулюється.\n\n"
-        "-> Наприклад, Ти - креативна молода особистість, умієш працювати із Canva/ "
+        "<b>Привіт, дорогий(-а) учаснику(-це). 👋</b>\n\n"
+        "<b>Я - бот молодіжної організації</b>, який:\n"
+        "<i>📎допоможе Тобі покращити будь-які Твої навички;</i>\n"
+        "<i>📎знайде завдання відповідно до Твого досвіду, за виконання яких Ти отримуватимеш </i>"
+        "<b>бонусні бали.</b>\n\n"
+        "<i>⏰Після отримання завдання починається відлік часу, за який Тобі потрібно виконати </i>"
+        "<i>завдання та здати роботу. Після цього адміністратор перевірить Твою роботу і або </i>"
+        "дасть Тобі бонусні бали, або надішле на доопрацювання. <b>Якщо Ти не встигнеш </b>"
+        "<b>виконати завдання до дедлайну, завдання анулюється.</b>\n\n"
+        "-&gt; Наприклад, Ти - креативна молода особистість, умієш працювати із Canva/ "
         "створювати контент у Соцмережах, бот підбере Тобі відповідне завдання, яке Ти "
         "зможеш виконати протягом наступних 24 годин. Після цього, якщо завдання виконано "
         "якісно, Ти отримаєш бонусні бали. 🪙\n\n"
-        "😉\nОтож, якщо готовий(а) покращувати свої навички та отримувати за це бонуси, давай "
-        "познайомимося!"
+        "😉\n<b>Отож, якщо готовий(а) покращувати свої навички та отримувати за це бонуси, давай </b>"
+        "<b>познайомимося!</b>"
     )
     existing = await get_user_by_telegram(message.from_user.id)
     if existing:
@@ -219,7 +225,7 @@ async def start_command(message: types.Message, state: FSMContext):
 async def ready_pressed(message: types.Message, state: FSMContext):
     existing = await get_user_by_telegram(message.from_user.id)
     if existing:
-        await message.answer("Ты уже зареган", reply_markup=ReplyKeyboardRemove())
+        await message.answer("<code>Ты уже зареган</code>", reply_markup=ReplyKeyboardRemove())
         return
     data = await state.get_data()
     to_delete = list(data.get("to_delete", []))
@@ -247,10 +253,10 @@ async def reg_age(message: types.Message, state: FSMContext):
     try:
         age = int(message.text.strip())
     except Exception:
-        await message.answer("Введи число")
+        await message.answer("<code>Введи число</code>")
         return
     if age < 0 or age > 100:
-        await message.answer("Введи число від 0 до 100")
+        await message.answer("<code>Введи число від 0 до 100</code>")
         return
     data = await state.get_data()
     to_delete = list(data.get("to_delete", []))
@@ -270,8 +276,11 @@ async def pick_skill(callback: types.CallbackQuery, state: FSMContext):
     if skill not in selected:
         selected.append(skill)
     await state.update_data(selected=selected)
-    text = "Обрано: " + ", ".join(selected) if selected else "Обрано: -"
-    await callback.message.edit_text(text, reply_markup=build_skills_kb(selected))
+    text = "Обрано: " + ",".join(selected) if selected else "Обрано: -"
+    if delete_messages:
+        await callback.message.edit_text(text, reply_markup=build_skills_kb(selected))
+    else:
+        await callback.message.answer(text, reply_markup=build_skills_kb(selected))
     await callback.answer()
 
 
@@ -284,15 +293,16 @@ async def skills_done(callback: types.CallbackQuery, state: FSMContext):
     await save_user(callback.from_user.id, name, age, selected)
     chat_id = callback.message.chat.id
     to_delete = list(data.get("to_delete", []))
-    for mid in set(to_delete):
+    if delete_messages:
+        for mid in set(to_delete):
+            try:
+                await callback.message.bot.delete_message(chat_id, mid)
+            except Exception:
+                pass
         try:
-            await callback.message.bot.delete_message(chat_id, mid)
+            await callback.message.bot.delete_message(chat_id, callback.message.message_id)
         except Exception:
             pass
-    try:
-        await callback.message.bot.delete_message(chat_id, callback.message.message_id)
-    except Exception:
-        pass
     await state.clear()
     await callback.message.bot.send_message(
         chat_id,
@@ -314,7 +324,7 @@ async def review_files(callback: types.CallbackQuery):
         return
     files = await list_user_task_files(user_task_id)
     if not files:
-        await callback.message.answer("Файлів не знайдено для цього завдання.")
+        await callback.message.answer("<code>Файлів не знайдено для цього завдання.</code>")
         await callback.answer()
         return
     await callback.message.answer(f"Файли для роботи #{user_task_id}:")
@@ -356,10 +366,13 @@ async def approve_task(callback: types.CallbackQuery):
     if user:
         await callback.message.bot.send_message(
             user["telegram_id"],
-            f"Гарна робота! Твоє завдання оцінено! Ти отримуєш {points} бонусних балів.\nХочеш нове завдання? Тоді натискай на кнопку «Отримати завдання»",
+            f"Гарна робота! <b>Твоє завдання оцінено!</b> Ти отримуєш {points} бонусних балів.\nХочеш нове завдання? Тоді натискай на кнопку <code>«Отримати завдання»</code>",
             reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="Отримати завдання")],[KeyboardButton(text="Перевірити баланс")]], resize_keyboard=True)
         )
-    await callback.message.edit_text("Зараховано")
+    if delete_messages:
+        await callback.message.edit_text("<code>Зараховано</code>")
+    else:
+        await callback.message.answer("<code>Зараховано</code>")
     await callback.answer()
 
 
@@ -382,9 +395,12 @@ async def reject_task(callback: types.CallbackQuery):
     if user:
         await callback.message.bot.send_message(
             user["telegram_id"],
-            "❌На жаль, Ти не виконав/ виконала усі необхідні пункти, які включало завдання.\nАдміністратор повернув Тобі завдання на доопрацювання. Надішли, будь ласка, свою\nроботу повторно після виконання завдання.",
+            "❌На жаль, <b>Ти не виконав/ виконала усі необхідні пункти</b>, які включало завдання.\nАдміністратор повернув Тобі завдання на <b>доопрацювання</b>. Надішли, будь ласка, свою\nроботу повторно після виконання завдання.",
         )
-    await callback.message.edit_text("Повернуто на доопрацювання")
+    if delete_messages:
+        await callback.message.edit_text("<code>Повернуто на доопрацювання</code>")
+    else:
+        await callback.message.answer("<code>Повернуто на доопрацювання</code>")
     await callback.answer()
 
 
@@ -403,10 +419,10 @@ async def rules_info(message: types.Message):
     text = (
         "ℹ️ Тут короткі правила:\n"
         "👇🏼\n"
-        "1. Виконуй завдання у визначений час.\n"
-        "2. Якщо робота якісна — отримуєш бали.\n"
-        "3. Якщо запізнився/здав неякісно — завдання анулюється або повертається на\n"
-        "доопрацювання\n"
+        "1. Виконуй завдання у <b>визначений час</b>.\n"
+        "2. Якщо <b>робота якісна</b> — отримуєш <b>бали</b>.\n"
+        "3. Якщо <b>запізнився/здав неякісно</b> — завдання <b>анулюється</b> або повертається на\n"
+        "<b>доопрацювання</b>\n"
         "Якщо усе зрозуміло, спробуй виконати своє завдання!\n"
         "⚡️"
     )
@@ -429,7 +445,7 @@ def build_tasks_kb(tasks: list[dict]) -> InlineKeyboardMarkup:
 async def list_tasks(message: types.Message):
     user = await get_user_by_telegram(message.from_user.id)
     if not user:
-        await message.answer("Спочатку зареєструйся: /start", reply_markup=ready_keyboard())
+        await message.answer("<b>Спочатку зареєструйся:</b> <code>/start</code>", reply_markup=ready_keyboard())
         return
     skills_raw = user.get("skills", "")
     skills = [s.strip() for s in skills_raw.split(",") if s.strip()]
@@ -457,7 +473,7 @@ async def show_task(callback: types.CallbackQuery):
         return
     task = await get_task_by_id(task_id)
     if not task:
-        await callback.answer("Завдання не знайдено", show_alert=False)
+        await callback.answer("<code>Завдання не знайдено</code>", show_alert=False)
         return
     skill = task.get("skill_required") or ""
     description = task.get("description") or ""
@@ -467,7 +483,10 @@ async def show_task(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="Прийняти завдання", callback_data=f"accept:{task_id}")],
         [InlineKeyboardButton(text="⬅️ До меню", callback_data="back_to_menu")]
     ]
-    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    if delete_messages:
+        await callback.message.edit_text("<code>Повернуто на доопрацювання</code>")
+    else:
+        await callback.message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await callback.answer()
 
 
@@ -481,12 +500,15 @@ async def accept_task(callback: types.CallbackQuery, state: FSMContext):
     # map telegram_id to Users.id
     user = await get_user_by_telegram(callback.from_user.id)
     if not user:
-        await callback.answer("Спочатку зареєструйся", show_alert=True)
+        await callback.answer("<code>Спочатку зареєструйся</code>", show_alert=True)
         return
     user_task_id = await create_user_task(user_id=user["id"], task_id=task_id)
     task = await get_task_by_id(task_id)
     deadline_hours = int(task.get("deadline_hours") or 0)
-    await callback.message.edit_text("Завдання прийнято. Можеш надсилати роботу, коли будеш готовий.")
+    if delete_messages:
+        await callback.message.edit_text("Завдання <b>прийнято</b>. Можеш надсилати роботу, коли будеш готовий.")
+    else:
+        await callback.message.answer("Завдання <b>прийнято</b>. Можеш надсилати роботу, коли будеш готовий.")
     await callback.message.answer(
         "Коли будеш готовий здати роботу — натисни кнопку нижче:",
         reply_markup=submit_keyboard(user_task_id)
@@ -510,14 +532,14 @@ async def submit_work_start(message: types.Message, state: FSMContext):
     data = await state.get_data()
     user_task_id = data.get("current_user_task_id")
     if not user_task_id:
-        await message.answer("Немає активного завдання.")
+        await message.answer("<code>Немає активного завдання.</code>")
         return
     await state.set_state(Submit.files)
     kb = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="Завершити здачу")], [KeyboardButton(text="Повернення до головного меню")]],
         resize_keyboard=True
     )
-    await message.answer("Надішли файл(и) з доказами виконання. Коли завершиш — натисни «Завершити здачу»", reply_markup=kb)
+    await message.answer("<b>Надішли файл(и)</b> з доказами виконання. Коли завершиш — натисни <code>«Завершити здачу»</code>", reply_markup=kb)
 
 
 @dp.message(Submit.files, F.content_type.in_({"photo", "document", "video", "audio", "voice"}))
@@ -543,7 +565,7 @@ async def collect_files(message: types.Message, state: FSMContext):
         file_type = "voice"
     if file_id and file_type:
         await save_user_task_file(user_task_id, file_id, file_type, message.caption)
-        await message.answer("Файл збережено. Надішли ще або натисни «Завершити здачу»")
+        await message.answer("<code>Файл збережено.</code> Надішли ще або натисни <code>«Завершити здачу»</code>")
 
 
 @dp.message(Submit.files, F.text == "Завершити здачу")
@@ -553,7 +575,7 @@ async def submit_done(message: types.Message, state: FSMContext):
     await update_user_task_status(user_task_id, "submitted")
     await state.clear()
     await message.answer(
-        "🎉 Твоє завдання успішно здано! Зачекай, поки його перевірить адміністратор!",
+        "🎉 Твоє завдання <b>успішно здано</b>* Зачекай, поки його <b>перевірить адміністратор!</b>",
         reply_markup=main_menu_keyboard(message.from_user.id)
     )
 
@@ -563,7 +585,7 @@ async def show_profile(message: types.Message, state: FSMContext):
     await cleanup_user_messages(message, state)
     user = await get_user_by_telegram(message.from_user.id)
     if not user:
-        sent = await message.answer("Спочатку зареєструйся: /start", reply_markup=ready_keyboard())
+        sent = await message.answer("Спочатку зареєструйся: <code>/start</code>", reply_markup=ready_keyboard())
         await state.update_data(to_delete=[sent.message_id])
         return
     name = user.get("name", "")
@@ -622,7 +644,7 @@ async def schedule_halfway_reminder(bot: Bot, user_task_id: int, user_chat_id: i
             return
         await bot.send_message(
             user_chat_id,
-            "⏳Увага! У Тебе залишилася половина часу на виконання завдання. Будь ласка,\nвиконай його до зазначеного дедлайну."
+            "<b>⏳Увага!</b> У Тебе залишилася <b>половина часу</b> на <i>виконання завдання</i>. Будь ласка,\n<i>виконай його</i> до зазначеного дедлайну."
         )
     except Exception:
         pass
@@ -631,19 +653,19 @@ async def schedule_halfway_reminder(bot: Bot, user_task_id: int, user_chat_id: i
 @dp.message(F.text == "Адмін панель")
 async def admin_panel(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("Недостатньо прав.")
+        await message.answer("<code>Недостатньо прав.</code>")
         return
-    await message.answer("Адмін панель", reply_markup=admin_menu_keyboard())
+    await message.answer("<code>Адмін панель</code>", reply_markup=admin_menu_keyboard())
 
 
 @dp.message(F.text == "Усі користувачі")
 async def admin_list_users(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("Недостатньо прав.")
+        await message.answer("<code>Недостатньо прав.</code>")
         return
     users = await list_all_users()
     if not users:
-        await message.answer("Користувачів не знайдено.")
+        await message.answer("<code>Недостатньо прав.</code>")
         return
     chunk: list[str] = []
     sent_any = False
@@ -658,18 +680,18 @@ async def admin_list_users(message: types.Message):
         await message.answer("\n".join(chunk))
         sent_any = True
     if not sent_any:
-        await message.answer("Користувачів не знайдено.")
+        await message.answer("<code>Користувачів не знайдено.</code>")
 
 
 @dp.message(F.text == "Перевірка робіт")
 async def admin_review_stub(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("Недостатньо прав.")
+        await message.answer("<code>Недостатньо прав.</code>")
         return
-    await message.answer("Список зданих робіт завантажується...")
+    await message.answer("<code>Список зданих робіт завантажується...</code>")
     submitted = await list_submitted_user_tasks()
     if not submitted:
-        await message.answer("Немає зданих робіт.")
+        await message.answer("<code>Немає зданих робіт.</code>")
         return
     for item in submitted[:20]:
         text = (
@@ -687,7 +709,7 @@ async def admin_review_stub(message: types.Message):
     
 async def main():
     await init_pool()
-    bot = Bot(BOT_TOKEN)
+    bot = Bot(BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     try:
         await dp.start_polling(bot)
     finally:
