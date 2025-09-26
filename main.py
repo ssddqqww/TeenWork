@@ -170,7 +170,7 @@ def ready_keyboard():
     return keyboard
 
 
-delete_messages = True
+delete_messages = False
 async def cleanup_user_messages(message: types.Message, state: FSMContext):
     if delete_messages:
         try:
